@@ -1,0 +1,190 @@
+{
+  "name": "Randevu Onaylandı - Mail ve SMS Gönder",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "appointment-approved",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "name": "Webhook Tetikleyici",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5000/api/webhooks/appointment-status-changed",
+        "authentication": "none",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "appointment_id",
+              "value": "={{ $json.body.appointment_id }}"
+            },
+            {
+              "name": "status",
+              "value": "approved"
+            },
+            {
+              "name": "user_email",
+              "value": "={{ $json.body.user_email }}"
+            },
+            {
+              "name": "user_phone",
+              "value": "={{ $json.body.user_phone }}"
+            },
+            {
+              "name": "user_name",
+              "value": "={{ $json.body.user_name }}"
+            }
+          ]
+        }
+      },
+      "name": "Backend Webhook Çağır",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@cevizli-surucu-kursu.com",
+        "toEmail": "={{ $json.body.user_email }}",
+        "subject": "Randevunuz Onaylandı - Cevizli Sürücü Kursu",
+        "emailType": "html",
+        "htmlEmail": "<h2>Merhaba {{ $json.body.user_name }},</h2>\n<p>Randevu talebiniz başarıyla onaylanmıştır!</p>\n<p><strong>Randevu Detayları:</strong></p>\n<ul>\n  <li>Tarih: {{ $json.body.appointment_date }}</li>\n  <li>Konum: Cevizli Mahallesi, Kartal, İstanbul</li>\n  <li>Telefon: (0216) 383 26 55</li>\n</ul>\n<p>Lütfen randevu saatinden 15 dakika önce gelmek için hatırlatıyoruz.</p>\n<p>Sorularınız için bizimle iletişime geçebilirsiniz.</p>\n<p>Teşekkürler,<br/>Cevizli Sürücü Kursu</p>"
+      },
+      "name": "E-posta Gönder",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [650, 150]
+    },
+    {
+      "parameters": {
+        "twilioAccount": "ACa2c5c520fba0c9510e6724176128415c",
+        "twilioAuthToken": "b12ecac34f020e7e3028091b50d52274",
+        "toNumber": "+905416562337",
+        "fromNumber": "+15017122661",
+        "message": "Merhaba {{ $json.body.user_name }}, randevunuz onaylanmıştır. Tarih: {{ $json.body.appointment_date }}. Cevizli Sürücü Kursu"
+      },
+      "name": "SMS Gönder (Twilio)",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [650, 450]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.messagebird.com/messages",
+        "authentication": "none",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "originator",
+              "value": "CevizliKursu"
+            },
+            {
+              "name": "recipients",
+              "value": "={{ $json.body.user_phone }}"
+            },
+            {
+              "name": "body",
+              "value": "Merhaba {{ $json.body.user_name }}, randevunuz onaylanmıştır. Tarih: {{ $json.body.appointment_date }}. Cevizli Sürücü Kursu"
+            }
+          ]
+        },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "AccessKey your_messagebird_api_key"
+            }
+          ]
+        }
+      },
+      "name": "SMS Gönder (MessageBird)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [650, 550]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5000/api/webhooks/appointment-status-changed",
+        "authentication": "none",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "log",
+              "value": "Randevu onay e-postası ve SMS'i gönderildi"
+            }
+          ]
+        }
+      },
+      "name": "Başarı Kaydı",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [850, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Tetikleyici": {
+      "main": [
+        [
+          {
+            "node": "Backend Webhook Çağır",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Backend Webhook Çağır": {
+      "main": [
+        [
+          {
+            "node": "E-posta Gönder",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "SMS Gönder (Twilio)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "E-posta Gönder": {
+      "main": [
+        [
+          {
+            "node": "Başarı Kaydı",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SMS Gönder (Twilio)": {
+      "main": [
+        [
+          {
+            "node": "Başarı Kaydı",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
